@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>บัตรคำศัพท์ AI จีน-ไทย</title>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary: #004e92;
+            --secondary: #0083b0;
+            --accent: #ffb300;
+            --white: #ffffff;
+        }
+
+        /* ป้องกันการแตะค้างแล้วขึ้นเมนู และป้องกันการซูม */
+        * { -webkit-tap-highlight-color: transparent; user-select: none; box-sizing: border-box; touch-action: manipulation; }
+        
+        body { 
+            font-family: 'Sarabun', sans-serif; 
+            background: linear-gradient(180deg, #e0f7fa 0%, #80d8ff 100%);
+            color: var(--primary); 
+            margin: 0; 
+            min-height: 100vh;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            overflow: hidden; 
+        }
+        
+        .header { margin-bottom: 15px; text-align: center; }
+        h1 { font-size: 24px; margin: 0; color: var(--primary); text-shadow: 1px 1px 2px rgba(0,0,0,0.1); }
+        .subtitle { font-size: 14px; color: #006064; font-weight: bold; }
+        
+        /* --- Flashcard Container --- */
+        .scene { width: 90vw; max-width: 340px; height: 320px; perspective: 1000px; cursor: pointer; }
+        .card { 
+            width: 100%; height: 100%; position: relative; 
+            transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1); 
+            transform-style: preserve-3d; 
+        }
+        .card.is-flipped { transform: rotateY(180deg); }
+        
+        .card-face { 
+            position: absolute; width: 100%; height: 100%; 
+            backface-visibility: hidden; border-radius: 30px; 
+            display: flex; flex-direction: column; justify-content: center; align-items: center; 
+            box-shadow: 0 12px 30px rgba(0,78,146,0.25); border: 6px solid var(--accent); 
+            padding: 20px; text-align: center;
+        }
+        
+        .card-front { background: #fffde7; }
+        #wordChar { font-size: 55px; color: var(--primary); font-weight: bold; margin: 0; line-height: 1.2; word-break: break-all; }
+        #wordPinyin { font-size: 24px; color: var(--secondary); margin-top: 10px; font-family: Arial, sans-serif; }
+        
+        .card-back { background: var(--primary); transform: rotateY(180deg); border-color: #80d8ff; }
+        #wordMeaning { font-size: 38px; color: var(--accent); font-weight: bold; margin: 0; }
+        .hint { font-size: 14px; color: rgba(255,255,255,0.6); margin-top: 25px; }
+
+        /* --- ปุ่มกด --- */
+        .controls { 
+            display: grid; grid-template-columns: 60px 1fr 1fr 60px; 
+            gap: 10px; margin-top: 25px; width: 90vw; max-width: 340px; 
+        }
+        
+        .btn { 
+            border: none; border-radius: 18px; cursor: pointer; 
+            font-weight: bold; transition: 0.1s; 
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 4px 0 rgba(0,0,0,0.15);
+        }
+        .btn:active { transform: translateY(3px); box-shadow: none; }
+
+        .btn-nav { background: var(--white); color: var(--primary); font-size: 20px; height: 55px; border: 2px solid var(--primary); }
+        .btn-audio { background: linear-gradient(135deg, #ffb300, #ff8f00); color: #fff; font-size: 16px; }
+        .btn-shuffle { background: #4caf50; color: #fff; font-size: 16px; }
+
+        .progress { 
+            margin-top: 20px; font-size: 16px; font-weight: bold;
+            background: rgba(255,255,255,0.6); padding: 6px 18px; border-radius: 25px; 
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>🐉 บัตรคำศัพท์ AI</h1>
+        <div class="subtitle">แตะที่การ์ดเพื่อดูคำแปล</div>
+    </div>
+
+    <div class="scene" onclick="flipCard()">
+        <div class="card" id="flashcard">
+            <div class="card-face card-front">
+                <p id="wordChar">加载中</p>
+                <p id="wordPinyin">...</p>
+                <p style="font-size:12px; color:#ccc; position:absolute; bottom:15px;">แตะเพื่อแปล</p>
+            </div>
+            <div class="card-face card-back">
+                <p id="wordMeaning">...</p>
+                <p class="hint">แตะเพื่อกลับด้าน</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button class="btn btn-nav" onclick="prevCard()">◀</button>
+        <button class="btn btn-audio" onclick="playAudio()">🔊 ฟัง</button>
+        <button class="btn btn-shuffle" onclick="shuffleVocab()">🔀 สุ่ม</button>
+        <button class="btn btn-nav" onclick="nextCard()">▶</button>
+    </div>
+
+    <div class="progress">คำที่ <span id="currentNum">1</span> / <span id="totalNum">35</span></div>
+
+    <script>
+        const vocabList = [
+            { char: "甲米", pinyin: "Jiǎmǐ", meaning: "กระบี่" },
+            { char: "海滩", pinyin: "Hǎitān", meaning: "ชายหาด" },
+            { char: "酒店", pinyin: "Jiǔdiàn", meaning: "โรงแรม" },
+            { char: "餐厅", pinyin: "Cāntīng", meaning: "ร้านอาหาร" },
+            { char: "洗手间", pinyin: "Xǐshǒujiān", meaning: "ห้องน้ำ" },
+            { char: "医院", pinyin: "Yīyuàn", meaning: "โรงพยาบาล" },
+            { char: "市场", pinyin: "Shìchǎng", meaning: "ตลาด" },
+            { char: "钱", pinyin: "Qián", meaning: "เงิน" },
+            { char: "水", pinyin: "Shuǐ", meaning: "น้ำ" },
+            { char: "饭", pinyin: "Fàn", meaning: "ข้าว / อาหาร" },
+            { char: "衣服", pinyin: "Yīfu", meaning: "เสื้อผ้า" },
+            { char: "纪念品", pinyin: "Jìniànpǐn", meaning: "ของที่ระลึก" },
+            { char: "你好", pinyin: "Nǐ hǎo", meaning: "สวัสดี" },
+            { char: "谢谢", pinyin: "Xièxie", meaning: "ขอบคุณ" },
+            { char: "多少钱", pinyin: "Duōshao qián", meaning: "ราคาเท่าไหร่" },
+            { char: "太贵了", pinyin: "Tài guì le", meaning: "แพงเกินไป" },
+            { char: "便宜点", pinyin: "Piányi diǎn", meaning: "ลดหน่อยได้ไหม" },
+            { char: "很好吃", pinyin: "Hěn hǎochī", meaning: "อร่อยมาก" },
+            { char: "向左转", pinyin: "Xiàng zuǒ zhuǎn", meaning: "เลี้ยวซ้าย" },
+            { char: "向右转", pinyin: "Xiàng yòu zhuǎn", meaning: "เลี้ยวขวา" },
+            { char: "直走", pinyin: "Zhí zǒu", meaning: "ตรงไป" },
+            { char: "就在前面", pinyin: "Jiù zài qiánmiàn", meaning: "อยู่ด้านหน้านี้เอง" },
+            { char: "买一个", pinyin: "Mǎi yí gè", meaning: "ซื้อ 1 อัน" },
+            { char: "不要", pinyin: "Bú yào", meaning: "ไม่เอา / ไม่ต้องการ" },
+            { char: "欢迎来甲米", pinyin: "Huānyíng lái Jiǎmǐ", meaning: "ยินดีต้อนรับสู่กระบี่" },
+            { char: "洗手间在哪里", pinyin: "Xǐshǒujiān zài nǎlǐ", meaning: "ห้องน้ำอยู่ทางไหน?" },
+            { char: "酒店怎么走", pinyin: "Jiǔdiàn zěnme zǒu", meaning: "โรงแรมไปทางไหน?" },
+            { char: "这个多少钱", pinyin: "Zhège duōshao qián", meaning: "อันนี้ราคาเท่าไหร่?" },
+            { char: "我想买这个", pinyin: "Wǒ xiǎng mǎi zhège", meaning: "ฉันอยากซื้ออันนี้" },
+            { char: "一共多少钱", pinyin: "Yígòng duōshao qián", meaning: "ทั้งหมดราคาเท่าไหร่?" },
+            { char: "给你打折", pinyin: "Gěi nǐ dǎzhé", meaning: "ลดราคาให้คุณนะ" },
+            { char: "餐厅在右边", pinyin: "Cāntīng zài yòubiān", meaning: "ร้านอาหารอยู่ทางขวา" },
+            { char: "医院在左边", pinyin: "Yีyuàn zài zuǒbiān", meaning: "โรงพยาบาลอยู่ทางซ้าย" },
+            { char: "市场在哪里", pinyin: "Shìchǎng zài nǎlǐ", meaning: "ตลาดอยู่ที่ไหน?" },
+            { char: "欢迎再来", pinyin: "Huānyíng zàilái", meaning: "โอกาสหน้าเชิญใหม่นะ" }
+        ];
+
+        let currentIndex = 0;
+        
+        const flashcard = document.getElementById('flashcard');
+        const charEl = document.getElementById('wordChar');
+        const pinyinEl = document.getElementById('wordPinyin');
+        const meaningEl = document.getElementById('wordMeaning');
+        const numEl = document.getElementById('currentNum');
+        const totalEl = document.getElementById('totalNum');
+
+        function updateCard() {
+            flashcard.classList.remove('is-flipped');
+            
+            setTimeout(() => {
+                const item = vocabList[currentIndex];
+                charEl.innerText = item.char;
+                pinyinEl.innerText = item.pinyin;
+                meaningEl.innerText = item.meaning;
+                numEl.innerText = currentIndex + 1;
+                totalEl.innerText = vocabList.length;
+
+                // ปรับขนาดตัวอักษรกรณีเป็นประโยคยาว
+                if (item.char.length > 6) {
+                    charEl.style.fontSize = "30px";
+                } else if (item.char.length > 4) {
+                    charEl.style.fontSize = "40px";
+                } else {
+                    charEl.style.fontSize = "55px";
+                }
+            }, 150);
+        }
+
+        function flipCard() { flashcard.classList.toggle('is-flipped'); }
+        function nextCard() { currentIndex = (currentIndex + 1) % vocabList.length; updateCard(); }
+        function prevCard() { currentIndex = (currentIndex - 1 + vocabList.length) % vocabList.length; updateCard(); }
+        
+        function shuffleVocab() {
+            vocabList.sort(() => Math.random() - 0.5);
+            currentIndex = 0;
+            updateCard();
+            // แจ้งเตือนสั้นๆ ว่าสุ่มแล้ว
+            const btn = document.querySelector('.btn-shuffle');
+            btn.innerText = "สุ่มแล้ว!";
+            setTimeout(() => btn.innerText = "🔀 สุ่ม", 1000);
+        }
+
+        function playAudio() {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const msg = new SpeechSynthesisUtterance(vocabList[currentIndex].char);
+                msg.lang = 'zh-CN';
+                msg.rate = 0.8;
+                window.speechSynthesis.speak(msg);
+            } else {
+                alert("เบราว์เซอร์นี้ไม่รองรับระบบเสียง AI");
+            }
+        }
+
+        window.onload = updateCard;
+    </script>
+</body>
+</html>
